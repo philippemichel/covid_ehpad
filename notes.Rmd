@@ -1,0 +1,46 @@
+---
+title: "IMPACT DE LA CRISE COVID-19 SUR LE PARCOURS DE SANTE DES
+PERSONNES ÂGÉES ATTEINTES DE MALADIES NEURODÉGÉNÉRATIVES
+BÉNÉFICIANT D’UNE PRISE EN CHARGE EN ACCUEIL DE JOUR
+"
+output: html_notebook
+---
+
+```{r prepa}
+suppressPackageStartupMessages(library("lubridate"))
+suppressPackageStartupMessages(library("janitor"))
+library("dplyr")
+library("ggplot2")
+```
+
+
+Quelques calculs préparatoires. 
+
+Vu le très faible effectif il n'est possible de faire que quelques calculs simples.  
+
+```{r import}
+tt <- read.csv("data/Données mémoire BG.csv", as.is=FALSE, header = TRUE)
+tt <- janitor::clean_names(tt)
+tt <- as_tibble(tt)
+tt$ddn <- dmy(tt$ddn)
+```
+
+# Comparaison avant-après
+
+## GIR
+
+```{r gir}
+ww <- wilcox.test(tt$gir_avant_confinement,tt$gir_visitepost_confinement, paired = TRUE, exact = FALSE)
+pww <- round(ww$p.value, 3)
+```
+
+Un test de Wilcoxon sur séries appariées ne retrouve pas de différence entre avant & après pour le GIR (p = `r pww`).
+
+## MMS
+
+```{r mms}
+mm <- wilcox.test(tt$mms_avant_confinement,tt$mms_visite_post_confinement, paired = TRUE, exact = FALSE)
+pmm <- round(mm$p.value, 3)
+```
+
+Un test de Wilcoxon sur séries appariées retrouve une différence significative entre avant & après pour le MMS (p = `r pmm`).
