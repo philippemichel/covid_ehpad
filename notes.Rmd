@@ -1,46 +1,132 @@
 ---
-title: "IMPACT DE LA CRISE COVID-19 SUR LE PARCOURS DE SANTE DES
-PERSONNES ÂGÉES ATTEINTES DE MALADIES NEURODÉGÉNÉRATIVES
-BÉNÉFICIANT D’UNE PRISE EN CHARGE EN ACCUEIL DE JOUR
-"
-output: html_notebook
+title: 'IMPACT DE LA CRISE COVID-19 SUR LE PARCOURS DE SANTE DES PERSONNES ÂGÉES ATTEINTES
+  DE MALADIES NEURODÉGÉNÉRATIVES BÉNÉFICIANT D’UNE PRISE EN CHARGE EN ACCUEIL DE JOUR '
+author: "Philippe MICHEL"
+output:
+  html_document: 
+    toc: yes
 ---
 
-```{r prepa}
+```{r prepa, echo=FALSE}
 suppressPackageStartupMessages(library("lubridate"))
 suppressPackageStartupMessages(library("janitor"))
-library("dplyr")
-library("ggplot2")
+suppressPackageStartupMessages(library("dplyr"))
+suppressPackageStartupMessages(library("tidyr"))
+suppressPackageStartupMessages(library("ggplot2"))
+suppressPackageStartupMessages(library("MASS"))
+suppressPackageStartupMessages(library("networkD3"))
+suppressPackageStartupMessages(library("htmlwidgets"))
 ```
 
+Quelques calculs préparatoires.
 
-Quelques calculs préparatoires. 
+Vu le très faible effectif il n'est possible de faire que quelques calculs simples.
 
-Vu le très faible effectif il n'est possible de faire que quelques calculs simples.  
-
-```{r import}
+```{r import, echo=FALSE}
 tt <- read.csv("data/Données mémoire BG.csv", as.is=FALSE, header = TRUE)
 tt <- janitor::clean_names(tt)
 tt <- as_tibble(tt)
 tt$ddn <- dmy(tt$ddn)
+tt <- tt %>% 
+  mutate(difgir = gir_apres-gir_avant)
 ```
+
+En raison du faible nombre de cas seuls des tests non paramétriques ont été employés.
 
 # Comparaison avant-après
 
 ## GIR
 
-```{r gir}
-ww <- wilcox.test(tt$gir_avant_confinement,tt$gir_visitepost_confinement, paired = TRUE, exact = FALSE)
+```{r gir, echo=FALSE}
+ww <- wilcox.test(tt$gir_avant,tt$gir_apres, paired = TRUE, exact = FALSE)
 pww <- round(ww$p.value, 3)
 ```
 
 Un test de Wilcoxon sur séries appariées ne retrouve pas de différence entre avant & après pour le GIR (p = `r pww`).
 
+```{r gir2, echo=FALSE}
+zz <-
+  data.frame(source = as.factor(paste0(tt$gir_avant, " avant")), cible = as.factor(paste0(tt$gir_apres, " après")))
+zzt <- table(zz$source, zz$cible)
+llf <- levels(zz$source)
+ccf <- levels(zz$cible)
+ll <- NULL
+cc <- NULL
+vv <- NULL
+for (l in 1:length(llf)) {
+  for (c in 1:length(ccf)) {
+    zzv <- zzt[l, c]
+    if (zzv > 0) {
+      ll <- c(ll, llf[l])
+      cc <- c(cc, ccf[c])
+      vv <- c(vv, zzv)
+    }
+  }
+}
+#
+lli <- data.frame(ll,cc,vv)
+nni <- data.frame(name = c(as.character(lli$ll),as.character(lli$cc)) %>% unique())
+lli$idll <- match(lli$ll,nni$name)-1
+lli$idcc <- match(lli$cc,nni$name)-1
+#
+pp <- sankeyNetwork(Links = lli,
+                    Nodes = nni,
+                    Source = "idll",
+                    Target = "idcc",
+                    Value = "vv",
+                    NodeID = "name",
+              sinksRight = TRUE,
+              fontSize =20)
+pp <- htmlwidgets::prependContent(pp, htmltools::tags$h1("Score GIR"))
+pp <- htmlwidgets::appendContent(pp, htmltools::tags$p("Évolution du GIR pendant le confinement"))
+pp
+saveWidget(pp, file="gir.html")
+```
+
 ## MMS
 
-```{r mms}
-mm <- wilcox.test(tt$mms_avant_confinement,tt$mms_visite_post_confinement, paired = TRUE, exact = FALSE)
+```{r mms,echo=FALSE}
+mm <- wilcox.test(tt$gir_avant,tt$gir_apres, paired = TRUE, exact = FALSE)
 pmm <- round(mm$p.value, 3)
+```
+
+```{r mms1, echo=FALSE}
+zz <-
+  data.frame(source = as.factor(paste0(tt$mms_avant," avant")), cible = as.factor(paste0(tt$mms_apres, " après")))
+zzt <- table(zz$source, zz$cible)
+llf <- levels(zz$source)
+ccf <- levels(zz$cible)
+ll <- NULL
+cc <- NULL
+vv <- NULL
+for (l in 1:length(llf)) {
+  for (c in 1:length(ccf)) {
+    zzv <- zzt[l, c]
+    if (zzv > 0) {
+      ll <- c(ll, llf[l])
+      cc <- c(cc, ccf[c])
+      vv <- c(vv, zzv)
+    }
+  }
+}
+#
+lli <- data.frame(ll,cc,vv)
+nni <- data.frame(name = c(as.character(lli$ll),as.character(lli$cc)) %>% unique())
+lli$idll <- match(lli$ll,nni$name)-1
+lli$idcc <- match(lli$cc,nni$name)-1
+#
+pp <- sankeyNetwork(Links = lli,
+                    Nodes = nni,
+                    Source = "idll",
+                    Target = "idcc",
+                    Value = "vv",
+                    NodeID = "name",
+              sinksRight = FALSE,
+              margin = 0,
+              fontSize =15)
+pp <- htmlwidgets::prependContent(pp, htmltools::tags$h1("Score MMS"))
+pp <- htmlwidgets::appendContent(pp, htmltools::tags$p("Évolution du MMS pendant le confinement"))
+pp
 ```
 
 Un test de Wilcoxon sur séries appariées retrouve une différence significative entre avant & après pour le MMS (p = `r pmm`).
