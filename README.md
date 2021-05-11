@@ -3,4 +3,4 @@
 
 Les données ne m'appartenant pas ne sont pas ce dépôt.
 
-Calcul des diffréneces sur les cores GIR & MMS avant & après.
+Calcul des différences sur les scores GIR & MMS avant & après.
