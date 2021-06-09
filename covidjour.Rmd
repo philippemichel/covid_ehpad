@@ -1,0 +1,339 @@
+---
+title: "IMPACT DE LA CRISE COVID-19 SUR LE PARCOURS DE SANTE DES PERSONNES ÂGÉES ATTEINTES
+  DE MALADIES NEURODÉGÉNÉRATIVES BÉNÉFICIANT D’UNE PRISE EN CHARGE EN ACCUEIL DE JOUR"
+subtitle: "Quelques chiffres"
+author: "Philippe MICHEL"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    theme: lumen
+    anchor_sections: TRUE
+  pdf_document:
+    includes:
+      in_header: tete.texœ
+    keep_tex: yes
+    latex_engine: lualatex
+    toc: yes  
+  html_notebook:
+    fig_caption: yes
+    theme: spacelab
+  prettydoc::html_pretty:
+    theme: architect
+    highlight: github
+    toc: yes
+editor_options:
+  chunk_output_type: console
+always_allow_html: true
+---
+
+````{r setup, include= FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, cache = FALSE)
+# knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+rm(list = ls())
+```
+
+```{r prepa}
+suppressPackageStartupMessages(library("lubridate"))
+suppressPackageStartupMessages(library("janitor"))
+suppressPackageStartupMessages(library("dplyr"))
+suppressPackageStartupMessages(library("tidyr"))
+suppressPackageStartupMessages(library("ggplot2"))
+suppressPackageStartupMessages(library("MASS"))
+suppressPackageStartupMessages(library("networkD3"))
+suppressPackageStartupMessages(library("htmlwidgets"))
+suppressPackageStartupMessages(library("forcats"))
+suppressPackageStartupMessages(library("table1"))
+suppressPackageStartupMessages(library("forestmodel"))
+suppressPackageStartupMessages(library("RColorBrewer"))
+suppressPackageStartupMessages(library("kableExtra"))
+suppressPackageStartupMessages(library("thesisph"))
+```
+
+# Introduction
+
+Vu le très faible effectif il n'est possible de faire que quelques calculs simples.
+
+```{r import, echo=FALSE}
+tt <-
+  read.csv("data/Données mémoire BG.csv",
+           as.is = FALSE,
+           header = TRUE)
+tt <- janitor::clean_names(tt)
+tt <- as_tibble(tt)
+tt <- tt %>%
+  mutate(difgir = gir_apres - gir_avant) %>%
+  mutate(dd_mms = mms_apres - mms_avant)
+```
+
+
+En raison du faible nombre de cas seuls des tests non paramétriques ont été employés.
+
+# Description
+
+```{r desc1, echo=FALSE}
+
+
+table1(~sexe+age+logement+jardin+suivi_aj+sexe_aidant+parente_aidant+suivi_aj+interruption_interventions, data = tt, caption = "Population", overall = " " )
+table1(~gir_avant + gir_apres + mms_avant+ mms_apres, data = tt, caption = "Population", overall = " " )
+```
+
+# Comparaison avant-après
+
+## GIR
+
+```{r gir, echo=FALSE}
+ww <- wilcox.test(tt$gir_avant,tt$gir_apres, paired = TRUE, exact = FALSE)
+pww <- round(ww$p.value, 3)
+
+```
+
+Un test de Wilcoxon sur séries appariées ne retrouve pas de différence entre avant & après pour le GIR (p = `r pww`).
+
+```{r gir2, echo=FALSE}
+zz <-
+  data.frame(source = as.factor(paste0(tt$gir_avant, " avant")),
+             cible = as.factor(paste0(tt$gir_apres, " après"))
+             )
+zzt <- table(zz$source, zz$cible)
+llf <- levels(zz$source)
+ccf <- levels(zz$cible)
+ll <- NULL
+cc <- NULL
+vv <- NULL
+for (l in 1:length(llf)) {
+  for (c in 1:length(ccf)) {
+    zzv <- zzt[l, c]
+    if (zzv > 0) {
+      ll <- c(ll, llf[l])
+      cc <- c(cc, ccf[c])
+      vv <- c(vv, zzv)
+    }
+  }
+}
+#
+lli <- data.frame(ll, cc, vv)
+nni <-
+  data.frame(name = c(as.character(lli$ll), as.character(lli$cc)) %>% unique())
+lli$idll <- match(lli$ll, nni$name) - 1
+lli$idcc <- match(lli$cc, nni$name) - 1
+#
+ee <- lli[,1:3]
+names(ee) <- c("N1","N2","Value")
+ID <- unique(c(ee$N1, ee$N2))
+x <- ifelse(substr(ID,3,7)== "avant",1,2)
+y <- as.integer(substr(ID,1,1))
+nodes <- data.frame(ID,x,y)
+rownames(nodes) = nodes$ID
+#
+palette = paste0(brewer.pal(5, "Set1"), "80")
+styles = lapply(nodes$y, function(n) {list(col = palette[n], lty = 5, textcol = "black")})
+names(styles) = nodes$ID
+#
+rp <- list(nodes = nodes, edges = ee, styles = styles)
+class(rp) <- c(class(rp), "riverplot")
+riverplot::riverplot(rp, plot_area = 1, yscale=0.2, fix.pdf= FALSE)
+```
+
+
+## MMS
+
+```{r mms,echo=FALSE}
+mm <- wilcox.test(tt$gir_avant,tt$gir_apres, paired = TRUE, exact = FALSE)
+pmm <- round(mm$p.value, 3)
+
+```
+
+```{r mms1, echo=FALSE}
+tt <- tt %>%
+  mutate(mmsc_av = cut(
+    mms_avant,
+    c(0, 10, 18, 24, 50),
+    c("sévère", "modéré", "léger", "très léger")
+  )) %>%
+  mutate(mmsc_ap = cut(
+    mms_apres,
+    c(0, 10, 18, 24, 50),
+    c("sévère", "modéré", "léger", "très léger")
+  ))
+zz <-
+  data.frame(source = as.factor(paste0(tt$mmsc_av, " avant")), cible = as.factor(paste0(tt$mmsc_ap, " après")))
+zz$source <- fct_relevel(zz$source,
+  c("très léger avant", "léger avant", "modéré avant", "sévère avant"))
+zz$cible <-
+  fct_relevel(zz$cible,
+              c("très léger après", "léger après", "modéré après", "sévère après"))
+zzt <- table(zz$source, zz$cible)
+llf <- levels(zz$source)
+ccf <- levels(zz$cible)
+ll <- NULL
+cc <- NULL
+vv <- NULL
+for (l in 1:length(llf)) {
+  for (c in 1:length(ccf)) {
+    zzv <- zzt[l, c]
+    if (zzv > 0) {
+      ll <- c(ll, llf[l])
+      cc <- c(cc, ccf[c])
+      vv <- c(vv, zzv)
+    }
+  }
+}
+#
+lli <- data.frame(ll, cc, vv)
+nni <-
+  data.frame(name = c(as.character(lli$ll), as.character(lli$cc)) %>% unique())
+lli$idll <- match(lli$ll, nni$name) - 1
+lli$idcc <- match(lli$cc, nni$name) - 1
+#
+pp <- sankeyNetwork(
+  Links = lli,
+  Nodes = nni,
+  Source = "idll",
+  Target = "idcc",
+  Value = "vv",
+  NodeID = "name",
+  sinksRight = FALSE,
+  margin = 0,
+  fontSize = 15
+)
+pp <-
+  htmlwidgets::prependContent(pp, htmltools::tags$h1("Score MMS"))
+pp <-
+  htmlwidgets::appendContent(pp, htmltools::tags$p("Évolution du MMS pendant le confinement"))
+pp
+```
+
+Un test de Wilcoxon sur séries appariées retrouve une différence significative entre avant & après pour le MMS (p = `r pmm`).
+
+## Facteurs contributifs
+
+On compare selon l'évolution du score MMS (baisse ou stabilité/hausse). Pas de résultat significatif ce qui était attendu.
+
+```{r tabc}
+tt <- tt %>% 
+  mutate(dd2 = as.factor(ifelse(dd_mms<0, "Baisse", "Stable")))
+
+lms <- function(varz){
+  llz <- paste0(signif(mean({{varz}}),3)," ± ", signif(sd({{varz}}),3))
+  return(llz)
+}
+
+tabz <- function(dfx,
+                       triz,
+                       titre = "Tableau comparatif",
+                       lab = "tabcomp",
+                       export = FALSE,
+                       correct = FALSE){
+  #On supprime les données manquantes dans la variable de tri
+  #dfx <- dfx %>%
+  #filter(!is.na({{tri}}))
+  #
+  tabx <- NULL
+  for (ll in 1:length(dfx)){
+    varx <- dfx[,ll]
+    varx <- varx[[1]]
+    nom <- paste0("<b>",names(dfx)[ll],"</b>")
+    
+    if (nom != "dd2"){
+      if (is.numeric(varx)){ # Variables numériques
+        dfp <- data.frame(varx, triz)
+        tano <- anova(lm(varx ~ triz))
+        zz <- dfp %>%
+          group_by(triz) %>%
+          summarise(lms(varx), .groups = "drop")
+        zz <- zz[2]
+        lig <- c(nom, zz[[1]], beaup(tano$`Pr(>F)`[1]))
+        tabx <- rbind(tabx,lig)
+      } else { # Variables factorielles
+        tabp <- table(varx, triz)
+        chip <- chisq.test(tabp, correct = T)[[3]]
+        chip <- chisq.test(tabp, correct = FALSE)
+        if (min(chip$expected)<5){chip <- chisq.test(tabp, correct = TRUE)}
+        chip <- chip[[3]]
+        if (is.na(chip)){
+          chip <- fisher.test(tabp)[[1]]
+        }
+        chip <- beaup(chip)
+        esp <- stringr::str_c(rep("&nbsp;",6), collapse = "")
+        ltri <- length(levels(triz))
+        lvar <- length(levels(varx))
+        tabg <- c(nom, rep(" ", ltri), chip)
+        #
+        ss <- colSums(tabp)
+        for (lig in 1:lvar) {
+          ligt <- paste0(esp,levels(varx)[lig])
+          for (cas in 1:ltri) {
+            casx <- tabp[lig, cas]
+            casp <- round(100*casx/ss[cas],1)
+            cast <- paste0(casx,"/",ss[cas]," (",casp," %)" )
+            ligt <- c(ligt,cast)
+          }
+          ligt <- c(ligt, " ")
+          tabg <- rbind(tabg, ligt)
+        }
+        tabx <- rbind(tabx,tabg)
+      }
+    }
+  }
+  # Export
+  if (export) {
+    nomcsv <- paste0(titre,"_export_comparatif.csv")
+    write.csv(tabx,nomcsv)
+  }
+  # Création tableaux
+  ltit <- c(" ",levels(triz),"p")
+  
+  kable(tabx,
+        row.names = FALSE,
+        col.names = ltit,
+        caption = titre,
+        label = lab,
+        escape = FALSE) %>%
+    kable_styling(bootstrap_options = "striped", full_width = FALSE,
+                  position = "center")
+}
+
+tabz(tt[,c(2:4,6,7:13,18)],tt$dd2)
+```
+
+
+# Âge & score MMS
+
+On cherche si l'âge ou les scores MMS ou GIR initiaux peuvent influer sur l'évolution du score MMS. La variable étudiée est donc la variation du score MMS avant/après. 
+
+```{r arbre, echo=FALSE}
+zz <- tt %>%
+  mutate(dd_mms = mms_apres - mms_avant) %>%
+  dplyr::select(sexe, age, gir_avant, mmsc_av, dd_mms)
+zz <- zz %>%
+  mutate_if(is.numeric, scale)
+ll <- lm(dd_mms ~ age + gir_avant + mmsc_av, data = zz)
+forest_model(ll)
+```
+
+Avec toutes les réserves liées au faible effectif,l'âge & le GIR avant semble liés à l'évolution du MMS mais très limite. Le score MMS avant est lié de manière plus franche : les patients ayant des MMS très faibles semblent s'être améliorés pendant le confinement ?
+
+```{r gmms, echo=FALSE}
+tt %>%
+  ggplot() +
+  aes(x = mms_avant, y = dd_mms) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_y_continuous(limits = c(-10, 10)) +
+  labs(title = "Score MMS",
+       x = "Score MMS avant",
+       y = "Progression du score") + # Titres des axes
+  theme_light() + # Thème simple, idéal pour publication
+  theme(
+    plot.title = element_text(size = 16),
+    axis.title.x = element_text(size = 12),
+    axis.title.y = element_text(size = 12),
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none" # Pas de légende
+  )
+```
